@@ -1,0 +1,222 @@
+# Default values for happy-k8s
+# This is a YAML-formatted file.
+
+# Number of agent replicas to run
+replicaCount: 2
+
+image:
+  repository: ghcr.io/ajbrown/happy-k8s
+  tag: latest
+  pullPolicy: Always
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Override the chart name
+nameOverride: ""
+fullnameOverride: ""
+
+# Repository configuration
+repository:
+  # Repository name (used for metrics labels and identification)
+  name: "unknown"
+  # Required: Git repository URL (e.g., https://github.com/user/repo.git)
+  url: ""
+  # Branch to checkout
+  branch: "main"
+  # Path inside the container where the repo will be cloned
+  clonePath: "/workspace/repo"
+
+# Credentials configuration
+credentials:
+  # Claude Max/Pro long-lived token from 'claude setup-token' (preferred)
+  # This is the recommended way to authenticate for server deployments
+  claudeMaxToken: ""
+  # Contents of ~/.claude/.credentials.json (deprecated, use claudeMaxToken instead)
+  # This should contain your Claude authentication
+  # Provide as a multi-line string or JSON object
+  claude: ""
+  # Git Personal Access Token for repository access
+  gitPat: ""
+
+# Happy configuration
+happy:
+  # Contents of ~/.happy/ directory files to pre-configure authentication
+  # If not provided, you'll need to authenticate each pod manually
+  # After first authentication, extract these from a running pod:
+  #   kubectl exec <pod> -c happy-k8s -- cat ~/.happy/access.key
+  #   kubectl exec <pod> -c happy-k8s -- cat ~/.happy/settings.json
+  accessKey: ""    # Contents of ~/.happy/access.key (sensitive - contains auth token)
+  settings: ""     # Contents of ~/.happy/settings.json
+  # Use --no-qr flag for headless pairing (shows text code in logs)
+  noQr: true
+  # Custom Happy server URL (for self-hosted setups)
+  serverUrl: ""
+  # Working directory to run Happy from (typically the repository root)
+  workingDir: "/workspace/repo"
+  # Enable yolo mode (--yolo flag) - allows Claude to run without confirmations
+  yolo: true
+  # Skip permission checks (--dangerously-skip-permissions flag)
+  dangerouslySkipPermissions: true
+  # Continue from previous session (--continue flag)
+  continueSession: true
+  # Enable debug logging for Happy (sets DEBUG=1 environment variable)
+  # Useful for troubleshooting connectivity and daemon issues
+  debug: false
+
+# Additional environment variables to set in the container
+# These will be stored in a secret
+# Example:
+#   VERCEL_TOKEN: "xxx"
+#   SOME_API_KEY: "yyy"
+env: {}
+
+# Git configuration for commits made by the agent
+git:
+  email: "claude@example.com"
+  name: "Claude Agent"
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+
+# Persistent storage configuration
+persistence:
+  # Enable persistent storage (disable for clusters without dynamic provisioning)
+  enabled: true
+  # Storage class to use (empty string uses the default)
+  storageClass: ""
+  # Size of the persistent volume per pod
+  size: "10Gi"
+  # Access mode for the volume
+  accessMode: ReadWriteOnce
+
+# Service account configuration
+serviceAccount:
+  # Create a service account
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use
+  # If not set, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# Liveness probe configuration
+livenessProbe:
+  exec:
+    command:
+      - /healthcheck.sh
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  exec:
+    command:
+      - /healthcheck.sh
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# Node selector for pod placement
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+tolerations: []
+
+# Affinity rules for pod scheduling
+affinity: {}
+
+# Pod disruption budget configuration
+podDisruptionBudget:
+  # Enable PDB
+  enabled: true
+  # Minimum number of pods that must be available
+  minAvailable: 1
+  # Maximum number of pods that can be unavailable (alternative to minAvailable)
+  # maxUnavailable: 1
+
+# Termination grace period (seconds)
+# Allows time for Happy to gracefully complete current tasks
+terminationGracePeriodSeconds: 300
+
+# Network policy configuration
+networkPolicy:
+  # Create a NetworkPolicy for the pods
+  # Useful if your cluster has a default-deny policy
+  create: false
+  # Ingress rules (if create is true)
+  ingress:
+    enabled: false
+    rules: []
+  # Additional egress rules beyond the defaults
+  # Default allows: DNS (53), HTTPS (443), HTTP (80), SSH (22)
+  egress:
+    additionalRules: []
+    # Example: Allow access to a private API
+    # - to:
+    #     - ipBlock:
+    #         cidr: 10.0.0.0/8
+    #   ports:
+    #     - protocol: TCP
+    #       port: 8080
+
+# Metrics exporter sidecar configuration
+metricsExporter:
+  # Enable metrics exporter sidecar for Prometheus monitoring
+  enabled: true
+  image:
+    repository: ghcr.io/ajbrown/happy-k8s-metrics
+    tag: latest
+    pullPolicy: Always
+  # Port to expose metrics on
+  port: 8080
+  # Minutes of inactivity before marking agent as idle (for autoscaling)
+  idleTimeoutMinutes: 10
+  # How often to update metrics (seconds)
+  updateIntervalSeconds: 30
+  # Resource limits for the metrics exporter sidecar
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# Horizontal Pod Autoscaler configuration
+autoscaling:
+  # Enable HPA based on custom metrics
+  enabled: true
+  # Minimum number of replicas
+  minReplicas: 2
+  # Maximum number of replicas
+  maxReplicas: 4
+  # Target number of idle pods to maintain per repository
+  # The HPA will scale up when idle pods < targetIdlePods
+  # and scale down when idle pods > targetIdlePods
+  targetIdlePods: 1
+  # Stabilization window to prevent flapping (seconds)
+  scaleUpStabilizationWindowSeconds: 0
+  scaleDownStabilizationWindowSeconds: 300

@@ -1,0 +1,48 @@
+{{- if and .Values.autoscaling.enabled .Values.metricsExporter.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "happy-k8s.fullname" . }}
+  labels:
+    {{- include "happy-k8s.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "happy-k8s.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    # Scale based on idle pod count
+    # We want to maintain exactly targetIdlePods idle pods
+    # If idle_count < target: scale up (all pods are busy)
+    # If idle_count > target: scale down (too many idle pods)
+    - type: Pods
+      pods:
+        metric:
+          name: claude_idle_pods_count
+        target:
+          type: AverageValue
+          # Target value per pod - this creates the "maintain N idle pods" behavior
+          # When idle_count < target*replicas: scale up
+          # When idle_count > target*replicas: scale down
+          averageValue: "{{ .Values.autoscaling.targetIdlePods }}"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: {{ .Values.autoscaling.scaleUpStabilizationWindowSeconds }}
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationWindowSeconds }}
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+      selectPolicy: Min
+{{- end }}

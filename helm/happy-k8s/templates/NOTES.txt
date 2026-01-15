@@ -1,0 +1,26 @@
+Claude Agents has been deployed!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Replicas: {{ .Values.replicaCount }}
+
+Repository: {{ .Values.repository.url }}
+Branch: {{ .Values.repository.branch }}
+
+To check the status of your agents:
+
+  kubectl get pods -l "app.kubernetes.io/name={{ include "happy-k8s.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Release.Namespace }}
+
+To view logs from an agent:
+
+  kubectl logs -f {{ include "happy-k8s.fullname" . }}-0 -n {{ .Release.Namespace }}
+
+To access an agent shell:
+
+  kubectl exec -it {{ include "happy-k8s.fullname" . }}-0 -n {{ .Release.Namespace }} -- /bin/bash
+
+To trigger a rolling restart (for updates):
+
+  kubectl rollout restart statefulset/{{ include "happy-k8s.fullname" . }} -n {{ .Release.Namespace }}
+
+Connect to your agents via the Happy mobile app using your configured credentials.

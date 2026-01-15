@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Get changes since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 $VERSION^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            CHANGES=$(git log --pretty=format:"- %s (%h)" $VERSION)
+          else
+            CHANGES=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..$VERSION)
+          fi
+
+          # Save to file
+          echo "$CHANGES" > changelog.txt
+
+          # Create release notes
+          cat > release-notes.md << EOF
+          ## What's Changed
+
+          $CHANGES
+
+          ## Docker Images
+
+          - Main agent: \`ghcr.io/${{ github.repository }}:$VERSION\`
+          - Metrics exporter: \`ghcr.io/${{ github.repository }}-metrics:$VERSION\`
+
+          ## Installation
+
+          ### Helm
+          \`\`\`bash
+          helm install my-agent oci://ghcr.io/${{ github.repository }}/helm/happy-k8s --version $VERSION
+          \`\`\`
+
+          ### Terraform
+          \`\`\`hcl
+          module "claude_agent" {
+            source = "git::https://github.com/${{ github.repository }}.git//terraform/modules/claude-agent?ref=$VERSION"
+          }
+          \`\`\`
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$VERSION
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          generate_release_notes: true

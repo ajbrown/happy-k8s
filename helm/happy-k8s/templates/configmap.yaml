@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "happy-k8s.configMapName" . }}
+  labels:
+    {{- include "happy-k8s.labels" . | nindent 4 }}
+data:
+  REPO_URL: {{ .Values.repository.url | quote }}
+  REPO_BRANCH: {{ .Values.repository.branch | quote }}
+  REPO_CLONE_PATH: {{ .Values.repository.clonePath | quote }}
+  GIT_AUTHOR_NAME: {{ .Values.git.name | quote }}
+  GIT_AUTHOR_EMAIL: {{ .Values.git.email | quote }}
+  GIT_COMMITTER_NAME: {{ .Values.git.name | quote }}
+  GIT_COMMITTER_EMAIL: {{ .Values.git.email | quote }}

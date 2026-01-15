@@ -1,0 +1,98 @@
+# Claude Agents Terraform Configuration Example
+# =============================================
+#
+# QUICK START:
+# 1. Copy this file: cp terraform.tfvars.example terraform.tfvars
+# 2. Fill in your credentials (see sections below)
+# 3. Deploy: terraform init && terraform apply
+#
+# SECURITY WARNING:
+# - This file contains sensitive credentials
+# - terraform.tfvars is in .gitignore - NEVER commit it!
+# - Alternative: Use environment variables (see README.md)
+
+# ===========================================
+# Kubernetes Configuration
+# ===========================================
+kubeconfig_path    = "~/.kube/config"
+kubeconfig_context = "your-cluster-context"
+
+# ===========================================
+# Docker Image Configuration
+# ===========================================
+image_repository = "ghcr.io/your-username/claude-agents"
+image_tag        = "latest"
+
+# ===========================================
+# Shared Credentials (SENSITIVE!)
+# ===========================================
+# Option 1: Set here (less secure)
+# Option 2: Use environment variables (recommended):
+#   export TF_VAR_claude_max_token='sk-ant-oat01-...'
+#   export TF_VAR_git_pat='...'
+
+# Claude Max/Pro long-lived token (RECOMMENDED)
+# Generate with: claude setup-token
+# This is a long-lived token that doesn't expire like OAuth tokens
+claude_max_token = ""
+
+# Claude credentials JSON (DEPRECATED - use claude_max_token instead)
+# Get from: cat ~/.claude/.credentials.json
+# Format: {"claudeAiOauth":{"accessToken":"...","refreshToken":"...",...}}
+claude_credentials = ""
+
+# GitHub Personal Access Token
+# Create at: https://github.com/settings/tokens
+# Required scopes for Classic PAT: repo, read:packages, write:packages
+# Or use Fine-Grained PAT with: Contents (R/W), Packages (R/W)
+git_pat = ""
+
+# ===========================================
+# Agent Deployments
+# ===========================================
+agents = {
+  # Example agent deployment
+  "my-project" = {
+    repository_url    = "https://github.com/your-org/your-repo"
+    repository_branch = "main"
+    namespace         = "claude-agents"
+    replica_count     = 2
+
+    git_email = "claude@your-org.com"
+    git_name  = "Claude Agent"
+
+    # Additional environment variables (stored as K8s secrets)
+    env = {
+      # VERCEL_TOKEN = "your-vercel-token"
+      # API_KEY      = "your-api-key"
+    }
+
+    # Resource configuration (optional)
+    resource_limits_cpu    = "2"
+    resource_limits_memory = "2Gi"
+    persistence_size       = "2Gi"
+
+    # Happy configuration - REQUIRED for mobile app access
+    # To get these credentials:
+    #   1. Install Happy CLI: npm install -g happy-coder
+    #   2. Run Happy and authenticate via mobile app: happy
+    #   3. Extract credentials: cat ~/.happy/access.key
+    #
+    # Copy the entire JSON from access.key below:
+    happy_access_key = <<-EOF
+    {
+      "encryption": {
+        "publicKey": "YOUR_PUBLIC_KEY_HERE",
+        "machineKey": "will-be-regenerated-per-pod"
+      },
+      "token": "YOUR_HAPPY_TOKEN_HERE"
+    }
+    EOF
+
+    # Optional: Happy working directory (becomes session name in app)
+    happy_working_dir = "/workspace/my-project"
+
+    # Optional: Enable Happy debug logging
+    happy_debug = false
+  }
+}

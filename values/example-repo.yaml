@@ -1,0 +1,54 @@
+# Example values file for deploying Claude agents for a specific repository
+# Copy this file and customize for your repository
+#
+# Usage:
+#   helm install my-repo-agents helm/happy-k8s -f values/my-repo.yaml
+
+# Number of agent instances
+replicaCount: 2
+
+# Repository to work with
+repository:
+  url: "https://github.com/your-org/your-repo.git"
+  branch: "main"
+  clonePath: "/workspace/repo"
+
+# Credentials - these should be provided via --set or a separate secrets file
+# Never commit actual credentials to version control!
+credentials:
+  # Contents of ~/.claude/.credentials.json
+  # Example structure (get actual values from your Happy account):
+  # claude: |
+  #   {
+  #     "token": "your-happy-token-here",
+  #     "orgId": "your-org-id"
+  #   }
+  claude: ""
+
+  # Git Personal Access Token with repo access
+  # gitPat: "ghp_xxxxxxxxxxxxxxxxxxxx"
+  gitPat: ""
+
+# Additional environment variables
+env: {}
+  # VERCEL_TOKEN: "your-vercel-token"
+  # SOME_API_KEY: "your-api-key"
+
+# Git identity for commits made by the agent
+git:
+  email: "claude-agent@your-org.com"
+  name: "Claude Agent"
+
+# Resource limits
+resources:
+  limits:
+    cpu: "2"
+    memory: "2Gi"
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+
+# Storage for the repository and working files
+persistence:
+  storageClass: ""  # Use cluster default
+  size: "10Gi"

@@ -1,0 +1,49 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.tfvars
+!terraform.tfvars.example
+
+# Secrets
+*.key
+secrets.yaml
+*.credentials.json
+access.key
+settings.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.exe
+*.test
+*.out
+metrics-exporter/metrics-exporter
+
+# Docker
+*.tar
+*.tar.gz
+
+# Helm
+*.tgz
+charts/
+Chart.lock
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/

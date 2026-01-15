@@ -1,0 +1,376 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "happy-k8s.fullname" . }}
+  labels:
+    {{- include "happy-k8s.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "happy-k8s.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "happy-k8s.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "happy-k8s.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "happy-k8s.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      initContainers:
+        - name: git-clone
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              # Configure git credentials
+              if [ -n "$GIT_PAT" ]; then
+                git config --global credential.helper store
+                # Extract host from URL for credential storage
+                REPO_HOST=$(echo "$REPO_URL" | sed -E 's|https?://([^/]+).*|\1|')
+                echo "https://oauth2:${GIT_PAT}@${REPO_HOST}" > ~/.git-credentials
+              fi
+
+              # Configure git identity
+              git config --global user.email "$GIT_AUTHOR_EMAIL"
+              git config --global user.name "$GIT_AUTHOR_NAME"
+
+              # Clone or update repository
+              if [ -d "$REPO_CLONE_PATH/.git" ]; then
+                echo "Repository exists, pulling latest changes..."
+                cd "$REPO_CLONE_PATH"
+                git fetch origin
+                git checkout "$REPO_BRANCH"
+                git pull origin "$REPO_BRANCH" || true
+              else
+                echo "Cloning repository..."
+                mkdir -p "$(dirname $REPO_CLONE_PATH)"
+                git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_CLONE_PATH"
+              fi
+
+              echo "Repository ready at $REPO_CLONE_PATH"
+          envFrom:
+            - configMapRef:
+                name: {{ include "happy-k8s.configMapName" . }}
+            - secretRef:
+                name: {{ include "happy-k8s.envSecretName" . }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          stdin: true
+          tty: true
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              # Configure git credentials (needed for runtime commits)
+              if [ -n "$GIT_PAT" ]; then
+                git config --global credential.helper store
+                REPO_HOST=$(echo "$REPO_URL" | sed -E 's|https?://([^/]+).*|\1|')
+                echo "https://oauth2:${GIT_PAT}@${REPO_HOST}" > ~/.git-credentials
+              fi
+
+              git config --global user.email "$GIT_AUTHOR_EMAIL"
+              git config --global user.name "$GIT_AUTHOR_NAME"
+
+              # Set up Happy configuration from mounted secrets
+              mkdir -p ~/.happy
+
+              # Set up Claude configuration directory
+              # The credentials are mounted read-only at /etc/claude-config, so we need to
+              # create our own writable ~/.claude directory and copy the credentials there
+              mkdir -p ~/.claude/projects
+
+              # Check for Claude Max token first (preferred method)
+              if [ -f /etc/claude-config/claude-max-token ]; then
+                CLAUDE_TOKEN=$(cat /etc/claude-config/claude-max-token)
+                # Create credentials.json with the token and far-future expiry (10 years)
+                EXPIRY=$(($(date +%s) * 1000 + 315360000000))
+                echo "{\"claudeAiOauth\":{\"accessToken\":\"${CLAUDE_TOKEN}\",\"expiresAt\":${EXPIRY},\"scopes\":[\"user:inference\",\"user:profile\"]}}" > ~/.claude/.credentials.json
+                echo "Created Claude credentials from Max token (expires in 10 years)"
+              elif [ -f /etc/claude-config/.credentials.json ]; then
+                # Fall back to legacy credentials.json
+                cp /etc/claude-config/.credentials.json ~/.claude/.credentials.json
+                echo "Copied Claude credentials to ~/.claude/ (legacy method)"
+              fi
+
+              # Create Claude settings to skip interactive onboarding
+              # This prevents Claude from getting stuck at the theme selection prompt
+              echo '{"theme":"dark","hasCompletedOnboarding":true,"autoUpdaterStatus":"disabled"}' > ~/.claude/settings.json
+              echo "Created Claude settings.json (onboarding skipped)"
+
+              # Generate unique identifiers for this pod
+              # The token and publicKey can be shared, but machineId and machineKey must be unique
+              # to avoid communication conflicts with the Happy server
+              UNIQUE_MACHINE_ID=$(cat /proc/sys/kernel/random/uuid)
+              echo "Generated unique machineId for this pod: $UNIQUE_MACHINE_ID"
+
+              # Generate a unique machineKey (32 random bytes, base64 encoded)
+              # Each pod needs its own machineKey for encryption - sharing causes server-side conflicts
+              UNIQUE_MACHINE_KEY=$(head -c 32 /dev/urandom | base64)
+              echo "Generated unique machineKey for this pod"
+
+              # Copy access.key but replace the machineKey with our unique one
+              if [ -f /etc/happy-config/access.key ]; then
+                if command -v jq &> /dev/null; then
+                  # Use jq to update the machineKey while preserving token and publicKey
+                  jq --arg mk "$UNIQUE_MACHINE_KEY" '.encryption.machineKey = $mk' /etc/happy-config/access.key > ~/.happy/access.key
+                else
+                  # Fallback: use sed to replace machineKey
+                  sed "s/\"machineKey\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"machineKey\": \"$UNIQUE_MACHINE_KEY\"/" /etc/happy-config/access.key > ~/.happy/access.key
+                fi
+                echo "Created access.key with unique machineKey"
+              fi
+
+              # Create settings.json with unique machineId
+              if [ -f /etc/happy-config/settings.json ]; then
+                if command -v jq &> /dev/null; then
+                  jq --arg mid "$UNIQUE_MACHINE_ID" '.machineId = $mid' /etc/happy-config/settings.json > ~/.happy/settings.json
+                else
+                  sed "s/\"machineId\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"machineId\": \"$UNIQUE_MACHINE_ID\"/" /etc/happy-config/settings.json > ~/.happy/settings.json
+                fi
+              else
+                echo "{\"machineId\": \"$UNIQUE_MACHINE_ID\", \"onboardingCompleted\": false}" > ~/.happy/settings.json
+              fi
+              echo "Created settings.json with unique machineId"
+
+              # Change to working directory (typically repository root)
+              cd "{{ .Values.happy.workingDir }}"
+
+              # Verify network connectivity to Happy server before starting
+              # This helps diagnose network issues and prevents immediate crashes
+              HAPPY_SERVER="${HAPPY_SERVER_URL:-https://api.cluster-fluster.com}"
+              echo "Checking connectivity to Happy server: $HAPPY_SERVER"
+
+              MAX_RETRIES=5
+              RETRY_COUNT=0
+              CONNECTED=false
+
+              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                echo "Connectivity check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
+
+                # Test DNS resolution
+                SERVER_HOST=$(echo "$HAPPY_SERVER" | sed -E 's|https?://([^/]+).*|\1|')
+                echo "  Testing DNS resolution for $SERVER_HOST..."
+                if ! nslookup "$SERVER_HOST" > /dev/null 2>&1; then
+                  echo "  WARNING: DNS resolution failed for $SERVER_HOST"
+                  # Try with dig as fallback
+                  if command -v dig &> /dev/null; then
+                    dig "$SERVER_HOST" +short
+                  fi
+                else
+                  echo "  DNS resolution successful"
+                fi
+
+                # Test HTTPS connectivity with curl
+                echo "  Testing HTTPS connectivity..."
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$HAPPY_SERVER/v1/sessions" 2>/dev/null || echo "000")
+
+                if [ "$HTTP_CODE" != "000" ]; then
+                  echo "  Connection successful! HTTP status: $HTTP_CODE"
+                  CONNECTED=true
+                  break
+                else
+                  echo "  Connection failed (timeout or network error)"
+                  echo "  Checking network details..."
+                  # Log some diagnostic info
+                  echo "    Default gateway: $(ip route | grep default | head -1 || echo 'unknown')"
+                  echo "    DNS servers: $(cat /etc/resolv.conf | grep nameserver | head -3 || echo 'unknown')"
+                fi
+
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  SLEEP_TIME=$((RETRY_COUNT * 5))
+                  echo "  Retrying in ${SLEEP_TIME}s..."
+                  sleep $SLEEP_TIME
+                fi
+              done
+
+              if [ "$CONNECTED" = "false" ]; then
+                echo "WARNING: Could not connect to Happy server after $MAX_RETRIES attempts"
+                echo "Happy will start anyway and attempt to reconnect in the background"
+                echo "Check network policies, firewall rules, and DNS configuration"
+              fi
+
+              # Build Happy command with options
+              # Note: Happy passes options through to Claude, so use Claude-compatible flags
+              HAPPY_CMD="happy"
+              {{- if .Values.happy.yolo }}
+              HAPPY_CMD="$HAPPY_CMD --yolo"
+              {{- end }}
+              {{- if .Values.happy.dangerouslySkipPermissions }}
+              HAPPY_CMD="$HAPPY_CMD --dangerously-skip-permissions"
+              {{- end }}
+              {{- if .Values.happy.continueSession }}
+              HAPPY_CMD="$HAPPY_CMD --continue"
+              {{- end }}
+
+              # Start Happy (it will spawn Claude Code sessions on demand)
+              # Claude Code will automatically read settings from ~/.claude/settings.json
+              exec $HAPPY_CMD
+          envFrom:
+            - configMapRef:
+                name: {{ include "happy-k8s.configMapName" . }}
+            - secretRef:
+                name: {{ include "happy-k8s.envSecretName" . }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            {{- if .Values.happy.serverUrl }}
+            - name: HAPPY_SERVER_URL
+              value: {{ .Values.happy.serverUrl | quote }}
+            {{- end }}
+            {{- if .Values.happy.debug }}
+            - name: DEBUG
+              value: "1"
+            {{- end }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            {{- if or .Values.credentials.claude .Values.credentials.claudeMaxToken }}
+            - name: claude-credentials
+              mountPath: /etc/claude-config
+              readOnly: true
+            {{- end }}
+            {{- if or .Values.happy.accessKey .Values.happy.settings }}
+            - name: happy-config
+              mountPath: /etc/happy-config
+              readOnly: true
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    # Give Happy time to complete current task
+                    echo "Shutting down gracefully..."
+                    # Send SIGTERM to happy process
+                    pkill -TERM happy || true
+                    # Wait for graceful shutdown
+                    sleep 30
+        {{- if .Values.metricsExporter.enabled }}
+        - name: metrics-exporter
+          image: "{{ .Values.metricsExporter.image.repository }}:{{ .Values.metricsExporter.image.tag }}"
+          imagePullPolicy: {{ .Values.metricsExporter.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metricsExporter.port }}
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: REPOSITORY_NAME
+              value: {{ .Values.repository.name | quote }}
+            - name: CLAUDE_DIR
+              value: "/workspace/.claude"
+            - name: HAPPY_DIR
+              value: "/workspace/.happy"
+            - name: IDLE_TIMEOUT_MINUTES
+              value: {{ .Values.metricsExporter.idleTimeoutMinutes | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.metricsExporter.port | quote }}
+            - name: UPDATE_INTERVAL_SECONDS
+              value: {{ .Values.metricsExporter.updateIntervalSeconds | quote }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+              readOnly: true
+          resources:
+            {{- toYaml .Values.metricsExporter.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+        {{- end }}
+      volumes:
+        {{- if not .Values.persistence.enabled }}
+        - name: workspace
+          emptyDir: {}
+        {{- end }}
+        {{- if or .Values.credentials.claude .Values.credentials.claudeMaxToken }}
+        - name: claude-credentials
+          secret:
+            secretName: {{ include "happy-k8s.credentialsSecretName" . }}
+            items:
+              {{- if .Values.credentials.claudeMaxToken }}
+              - key: claude-max-token
+                path: claude-max-token
+              {{- end }}
+              {{- if .Values.credentials.claude }}
+              - key: credentials.json
+                path: .credentials.json
+              {{- end }}
+        {{- end }}
+        {{- if or .Values.happy.accessKey .Values.happy.settings }}
+        - name: happy-config
+          secret:
+            secretName: {{ include "happy-k8s.fullname" . }}-happy
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}

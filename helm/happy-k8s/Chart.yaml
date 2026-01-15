@@ -1,0 +1,14 @@
+apiVersion: v2
+name: happy-k8s
+description: Persistent Claude AI agents running via Happy for repository-specific development assistance
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - claude
+  - ai
+  - happy
+  - development
+  - assistant
+maintainers:
+  - name: AJ Brown

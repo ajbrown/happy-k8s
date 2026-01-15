@@ -1,0 +1,19 @@
+{{- if .Values.metricsExporter.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "happy-k8s.fullname" . }}
+  labels:
+    {{- include "happy-k8s.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+spec:
+  selector:
+    matchLabels:
+      {{- include "happy-k8s.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: metrics
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.metricsExporter.updateIntervalSeconds }}s
+      path: /metrics
+      scheme: http
+{{- end }}

@@ -1,0 +1,19 @@
+{{- if .Values.metricsExporter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "happy-k8s.fullname" . }}-metrics
+  labels:
+    {{- include "happy-k8s.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet pods
+  selector:
+    {{- include "happy-k8s.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.metricsExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}
