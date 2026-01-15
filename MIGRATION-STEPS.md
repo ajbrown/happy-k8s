@@ -1,4 +1,4 @@
-# Migration Steps: Claude Agents to Standalone Repository
+# Migration Steps: Happy-K8s to Standalone Repository
 
 This guide walks you through completing the migration from cybertron/workloads/happy-k8s to a standalone repository.
 
