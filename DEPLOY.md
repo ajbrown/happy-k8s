@@ -6,7 +6,7 @@ Follow these steps to deploy happy-k8s to GitHub and integrate with cybertron.
 
 1. Go to https://github.com/new
 2. **Repository name**: `happy-k8s`
-3. **Description**: `Production-ready Kubernetes deployment for Claude AI agents via Happy mobile app`
+3. **Description**: `Your AI coding assistant in your pocket - Deploy Claude agents on Kubernetes, control from your phone via Happy`
 4. **Visibility**: Public
 5. **DO NOT** check any initialization options
 6. Click "Create repository"

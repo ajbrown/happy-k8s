@@ -1,6 +1,6 @@
 # Happy for Kubernetes
 
-> **AI pair programming from your phone** - Deploy Claude AI agents on Kubernetes, accessible anywhere via the Happy mobile app, with intelligent autoscaling that keeps one agent ready for instant response.
+> **Your AI coding assistant in your pocket** - Deploy Claude agents on Kubernetes, control from your phone via Happy. Fix bugs during lunch, deploy hotfixes from bed.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.24+-blue.svg)](https://kubernetes.io)

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: happy-k8s
-description: Persistent Claude AI agents running via Happy for repository-specific development assistance
+description: Your AI coding assistant in your pocket - Deploy Claude agents on Kubernetes, control from your phone via Happy
 type: application
 version: 0.1.0
 appVersion: "latest"
