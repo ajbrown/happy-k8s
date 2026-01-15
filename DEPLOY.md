@@ -16,8 +16,8 @@ Follow these steps to deploy happy-k8s to GitHub and integrate with cybertron.
 ```bash
 cd /Users/ajbrown/Projects/happy-k8s
 
-# Add remote
-git remote add origin https://github.com/ajbrown/happy-k8s.git
+# Add remote (using SSH)
+git remote add origin git@github.com:ajbrown/happy-k8s.git
 
 # Push main branch
 git push -u origin main
@@ -72,8 +72,8 @@ git push origin main
 # Now remove the old workloads/claude-agents and add happy-k8s submodule
 git rm -rf workloads/claude-agents
 
-# Add happy-k8s as submodule
-git submodule add https://github.com/ajbrown/happy-k8s.git workloads/happy-k8s
+# Add happy-k8s as submodule (using SSH)
+git submodule add git@github.com:ajbrown/happy-k8s.git workloads/happy-k8s
 
 # Commit the submodule
 git commit --no-gpg-sign -m "refactor: Replace local claude-agents with happy-k8s submodule
