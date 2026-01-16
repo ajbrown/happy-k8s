@@ -64,6 +64,17 @@ happy:
   # Useful for troubleshooting connectivity and daemon issues
   debug: false
 
+# Claude plugins configuration
+# List of MCP (Model Context Protocol) plugins to install on pod startup
+# Plugins are installed using: claude plugins install <plugin>
+# Examples:
+#   - "@modelcontextprotocol/server-github"
+#   - "@modelcontextprotocol/server-filesystem"
+#   - "@modelcontextprotocol/server-memory"
+#   - "package-name@version" (for specific versions)
+#   - "git+https://github.com/user/repo" (for git-based plugins)
+plugins: []
+
 # Additional environment variables to set in the container
 # These will be stored in a secret
 # Example:

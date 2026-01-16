@@ -12,3 +12,6 @@ data:
   GIT_AUTHOR_EMAIL: {{ .Values.git.email | quote }}
   GIT_COMMITTER_NAME: {{ .Values.git.name | quote }}
   GIT_COMMITTER_EMAIL: {{ .Values.git.email | quote }}
+  {{- if .Values.plugins }}
+  CLAUDE_PLUGINS: {{ .Values.plugins | join "," | quote }}
+  {{- end }}

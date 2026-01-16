@@ -218,6 +218,27 @@ spec:
                 echo "Check network policies, firewall rules, and DNS configuration"
               fi
 
+              # Install Claude plugins if configured
+              if [ -n "$CLAUDE_PLUGINS" ]; then
+                echo "Installing Claude plugins..."
+                IFS=',' read -ra PLUGINS <<< "$CLAUDE_PLUGINS"
+                for plugin in "${PLUGINS[@]}"; do
+                  # Trim whitespace
+                  plugin=$(echo "$plugin" | xargs)
+                  if [ -n "$plugin" ]; then
+                    echo "  Installing plugin: $plugin"
+                    if claude plugins install "$plugin"; then
+                      echo "    ✓ Successfully installed: $plugin"
+                    else
+                      echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                    fi
+                  fi
+                done
+                echo "Plugin installation complete"
+              else
+                echo "No Claude plugins configured"
+              fi
+
               # Start restart watchdog if enabled
               {{- if .Values.restartWatchdog.enabled }}
               echo "Starting restart watchdog..."
