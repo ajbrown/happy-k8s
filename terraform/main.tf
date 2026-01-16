@@ -8,7 +8,7 @@ module "claude_agent" {
   namespace    = each.value.namespace
 
   # Repository configuration
-  repository_name   = each.key  # Use the key as the repository name
+  repository_name   = each.key # Use the key as the repository name
   repository_url    = each.value.repository_url
   repository_branch = each.value.repository_branch
 
