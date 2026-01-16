@@ -156,6 +156,25 @@ healthCheck:
   # Set to false if you want a simpler health check
   activityCheckEnabled: true
 
+# Restart watchdog configuration
+# Enables manual restart triggering from the Happy mobile app
+restartWatchdog:
+  # Enable the restart watchdog (recommended)
+  # Allows manual pod restart via /restart-pod command or file trigger
+  enabled: true
+  # How often to check for restart triggers (seconds)
+  # Lower values = faster response, higher values = less CPU usage
+  checkInterval: 30
+
+# Restart trigger server configuration (optional)
+# HTTP server that can trigger restarts via POST request
+restartTriggerServer:
+  # Enable HTTP trigger server (disabled by default for security)
+  # Only enable if you need programmatic restart triggers
+  enabled: false
+  # Port to listen on
+  port: 8888
+
 # Node selector for pod placement
 nodeSelector: {}
 

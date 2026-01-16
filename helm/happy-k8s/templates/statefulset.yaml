@@ -218,6 +218,38 @@ spec:
                 echo "Check network policies, firewall rules, and DNS configuration"
               fi
 
+              # Start restart watchdog if enabled
+              {{- if .Values.restartWatchdog.enabled }}
+              echo "Starting restart watchdog..."
+              if [ -f /restart-watchdog.sh ]; then
+                chmod +x /restart-watchdog.sh
+                {{- if .Values.restartWatchdog.checkInterval }}
+                export RESTART_WATCHDOG_INTERVAL={{ .Values.restartWatchdog.checkInterval }}
+                {{- end }}
+                /restart-watchdog.sh &
+                WATCHDOG_PID=$!
+                echo "Restart watchdog started with PID $WATCHDOG_PID"
+              else
+                echo "WARNING: Restart watchdog enabled but /restart-watchdog.sh not found"
+              fi
+              {{- end }}
+
+              # Start restart trigger server if enabled (optional)
+              {{- if .Values.restartTriggerServer.enabled }}
+              echo "Starting restart trigger server..."
+              if [ -f /restart-trigger-server.sh ]; then
+                chmod +x /restart-trigger-server.sh
+                {{- if .Values.restartTriggerServer.port }}
+                export RESTART_TRIGGER_PORT={{ .Values.restartTriggerServer.port }}
+                {{- end }}
+                /restart-trigger-server.sh &
+                TRIGGER_SERVER_PID=$!
+                echo "Restart trigger server started with PID $TRIGGER_SERVER_PID on port ${RESTART_TRIGGER_PORT:-8888}"
+              else
+                echo "WARNING: Restart trigger server enabled but /restart-trigger-server.sh not found"
+              fi
+              {{- end }}
+
               # Build Happy command with options
               # Note: Happy passes options through to Claude, so use Claude-compatible flags
               HAPPY_CMD="happy"

@@ -65,9 +65,11 @@ RUN mkdir -p ${WORKSPACE} ${HOME}/.claude ${HOME}/.happy \
 USER agent
 WORKDIR ${HOME}
 
-# Copy healthcheck script
+# Copy healthcheck and restart scripts
 COPY --chown=agent:agent healthcheck.sh /healthcheck.sh
-RUN chmod +x /healthcheck.sh
+COPY --chown=agent:agent restart-watchdog.sh /restart-watchdog.sh
+COPY --chown=agent:agent restart-trigger-server.sh /restart-trigger-server.sh
+RUN chmod +x /healthcheck.sh /restart-watchdog.sh /restart-trigger-server.sh
 
 # Set working directory to workspace
 WORKDIR ${WORKSPACE}
