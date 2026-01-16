@@ -250,6 +250,16 @@ spec:
             - name: DEBUG
               value: "1"
             {{- end }}
+            {{- if .Values.happy.workingDir }}
+            - name: HAPPY_WORKING_DIR
+              value: {{ .Values.happy.workingDir | quote }}
+            {{- end }}
+            {{- if .Values.healthCheck }}
+            - name: HEALTH_CHECK_MAX_IDLE_MINUTES
+              value: {{ .Values.healthCheck.maxIdleMinutes | quote }}
+            - name: HEALTH_CHECK_ACTIVITY_CHECK
+              value: {{ .Values.healthCheck.activityCheckEnabled | quote }}
+            {{- end }}
           volumeMounts:
             - name: workspace
               mountPath: /workspace

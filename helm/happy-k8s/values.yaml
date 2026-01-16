@@ -120,24 +120,41 @@ securityContext:
   runAsGroup: 1000
 
 # Liveness probe configuration
+# The liveness probe will restart the container if it fails
+# This ensures that stuck/unresponsive Claude sessions are recovered
 livenessProbe:
   exec:
     command:
       - /healthcheck.sh
-  initialDelaySeconds: 30
-  periodSeconds: 60
-  timeoutSeconds: 10
-  failureThreshold: 3
+  initialDelaySeconds: 60     # Give Happy and Claude time to start up
+  periodSeconds: 120           # Check every 2 minutes
+  timeoutSeconds: 30          # Allow time for health check to run
+  failureThreshold: 2         # Restart after 2 consecutive failures (4 minutes of being unhealthy)
+  successThreshold: 1         # Consider healthy after 1 success
 
 # Readiness probe configuration
+# The readiness probe determines if the pod can receive traffic
+# Failing this removes the pod from service but doesn't restart it
 readinessProbe:
   exec:
     command:
       - /healthcheck.sh
-  initialDelaySeconds: 10
-  periodSeconds: 30
-  timeoutSeconds: 10
-  failureThreshold: 3
+  initialDelaySeconds: 30     # Initial startup time
+  periodSeconds: 60            # Check every minute
+  timeoutSeconds: 30          # Allow time for health check to run
+  failureThreshold: 2         # Mark unready after 2 failures (2 minutes)
+  successThreshold: 1         # Mark ready after 1 success
+
+# Health check configuration
+# These environment variables control the behavior of /healthcheck.sh
+healthCheck:
+  # Maximum minutes of inactivity before considering the agent unhealthy
+  # If Claude hasn't been used in this many minutes, health check passes
+  # but if Happy is running without any activity logs, it fails
+  maxIdleMinutes: 30
+  # Enable/disable activity checking in logs
+  # Set to false if you want a simpler health check
+  activityCheckEnabled: true
 
 # Node selector for pod placement
 nodeSelector: {}
@@ -188,7 +205,7 @@ metricsExporter:
   enabled: true
   image:
     repository: ghcr.io/ajbrown/happy-k8s-metrics
-    tag: latest
+    tag: main
     pullPolicy: Always
   # Port to expose metrics on
   port: 8080
