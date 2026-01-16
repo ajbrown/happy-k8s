@@ -5,7 +5,7 @@
 
 TRIGGER_FILE="/workspace/.restart-trigger"
 CHECK_INTERVAL=${RESTART_WATCHDOG_INTERVAL:-30}  # Check every 30 seconds by default
-CLAUDE_COMMAND_LOG="$HOME/.claude/history.jsonl"
+CLAUDE_PROJECTS_DIR="$HOME/.claude/projects"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Restart watchdog starting..."
 echo "  Monitoring for restart triggers:"
@@ -54,17 +54,22 @@ while true; do
     fi
 
     # Check 2: Command-based trigger in Claude history
-    if [ -f "$CLAUDE_COMMAND_LOG" ]; then
-        # Look for /restart-pod command in last 20 lines
-        # Only check recent entries to avoid triggering on old commands
-        if tail -20 "$CLAUDE_COMMAND_LOG" 2>/dev/null | grep -q "/restart-pod"; then
-            # Check if this is a new command (within last 5 minutes)
-            LAST_MOD=$(stat -c %Y "$CLAUDE_COMMAND_LOG" 2>/dev/null || stat -f %m "$CLAUDE_COMMAND_LOG" 2>/dev/null)
-            CURRENT_TIME=$(date +%s)
-            AGE=$((CURRENT_TIME - LAST_MOD))
+    # Search all Claude session files in projects directory
+    if [ -d "$CLAUDE_PROJECTS_DIR" ]; then
+        # Find the most recently modified session file
+        LATEST_SESSION=$(find "$CLAUDE_PROJECTS_DIR" -name "*.jsonl" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
 
-            if [ "$AGE" -lt 300 ]; then
-                trigger_restart "Command trigger detected (/restart-pod in Claude history)"
+        if [ -n "$LATEST_SESSION" ] && [ -f "$LATEST_SESSION" ]; then
+            # Look for /restart-pod command in last 20 lines of the latest session
+            if tail -20 "$LATEST_SESSION" 2>/dev/null | grep -q "/restart-pod"; then
+                # Check if this is a new command (within last 5 minutes)
+                LAST_MOD=$(stat -c %Y "$LATEST_SESSION" 2>/dev/null || stat -f %m "$LATEST_SESSION" 2>/dev/null)
+                CURRENT_TIME=$(date +%s)
+                AGE=$((CURRENT_TIME - LAST_MOD))
+
+                if [ "$AGE" -lt 300 ]; then
+                    trigger_restart "Command trigger detected (/restart-pod in Claude session: $(basename $LATEST_SESSION))"
+                fi
             fi
         fi
     fi
