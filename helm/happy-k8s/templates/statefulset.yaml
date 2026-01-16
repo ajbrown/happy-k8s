@@ -218,25 +218,37 @@ spec:
                 echo "Check network policies, firewall rules, and DNS configuration"
               fi
 
-              # Install Claude plugins if configured
+              # Install Claude MCP plugins if configured
+              # MCP (Model Context Protocol) plugins are npm packages that extend Claude's capabilities
               if [ -n "$CLAUDE_PLUGINS" ]; then
-                echo "Installing Claude plugins..."
+                echo "Installing Claude MCP plugins..."
+
+                # Configure npm to use user-writable directory for global packages
+                # This is needed because the container runs as non-root user
+                mkdir -p ~/.npm-global
+                npm config set prefix ~/.npm-global
+                export PATH=~/.npm-global/bin:$PATH
+
                 IFS=',' read -ra PLUGINS <<< "$CLAUDE_PLUGINS"
                 for plugin in "${PLUGINS[@]}"; do
                   # Trim whitespace
                   plugin=$(echo "$plugin" | xargs)
                   if [ -n "$plugin" ]; then
                     echo "  Installing plugin: $plugin"
-                    if claude plugins install "$plugin"; then
+                    # Install as global npm package in user directory
+                    if npm install -g "$plugin" --loglevel=error 2>&1 | grep -v "npm warn"; then
                       echo "    ✓ Successfully installed: $plugin"
                     else
                       echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
                     fi
                   fi
                 done
+
                 echo "Plugin installation complete"
+                echo "Installed plugins are available in: ~/.npm-global/lib/node_modules"
+                echo "Note: You may need to configure these plugins in Claude's MCP settings"
               else
-                echo "No Claude plugins configured"
+                echo "No Claude MCP plugins configured"
               fi
 
               # Start restart watchdog if enabled
