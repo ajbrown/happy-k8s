@@ -76,16 +76,19 @@ happy:
 #      - "@modelcontextprotocol/server-memory"      # Persistent memory
 #      - "package-name@version"                     # Specific version
 #
-# 2. Claude Plugins (GitHub repos) - Native Claude Code plugins
-#    Installed via: claude plugin install <owner/repo>
-#    Available in: ~/.claude/plugins
+# 2. Claude Code Plugins (GitHub repos) - Native Claude Code workflow extensions
+#    Installed via: git clone https://github.com/<owner/repo>.git ~/.claude/plugins/<name>
+#    Available in: ~/.claude/plugins/
 #    Examples:
 #      - "ajbrown/007"                              # Multi-agent workflows
-#      - "owner/plugin-name"                        # Any GitHub plugin
+#      - "owner/plugin-name"                        # Any GitHub repository with .claude-plugin/plugin.json
 #
 # The installation script automatically detects the type:
-# - Format "owner/repo" → Claude plugin (uses claude plugin install)
-# - Format "@scope/package" or "package" → MCP plugin (uses npm install)
+# - Format "owner/repo" → Claude Code plugin (cloned to ~/.claude/plugins/)
+# - Format "@scope/package" or "package" → MCP plugin (installed via npm)
+#
+# NOTE: Claude Code plugins are cloned directly from GitHub since they cannot be installed
+# via the Claude marketplace system without being explicitly published.
 plugins: []
 
 # Additional environment variables to set in the container

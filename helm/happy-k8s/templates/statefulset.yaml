@@ -237,15 +237,24 @@ spec:
                     echo "  Installing plugin: $plugin"
 
                     # Detect plugin type:
-                    # - GitHub shorthand (owner/repo): Use claude plugin install
+                    # - GitHub shorthand (owner/repo): Clone to ~/.claude/plugins/
                     # - npm package (@scope/package or package-name): Use npm install
                     if [[ "$plugin" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
                       # GitHub shorthand format (e.g., ajbrown/007)
-                      echo "    Detected Claude plugin (GitHub): $plugin"
-                      if claude plugin install "$plugin" 2>&1; then
-                        echo "    ✓ Successfully installed Claude plugin: $plugin"
+                      # Claude Code plugins must be cloned to ~/.claude/plugins/ directory
+                      echo "    Detected Claude Code plugin (GitHub): $plugin"
+                      PLUGIN_NAME=$(echo "$plugin" | sed 's/.*\///')
+                      PLUGIN_DIR=~/.claude/plugins/$PLUGIN_NAME
+
+                      if [ -d "$PLUGIN_DIR" ]; then
+                        echo "    Plugin exists, updating..."
+                        (cd "$PLUGIN_DIR" && git pull 2>&1) || echo "    Warning: Update failed"
                       else
-                        echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                        if git clone "https://github.com/$plugin.git" "$PLUGIN_DIR" 2>&1; then
+                          echo "    ✓ Successfully installed Claude Code plugin: $plugin"
+                        else
+                          echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                        fi
                       fi
                     else
                       # npm package format
