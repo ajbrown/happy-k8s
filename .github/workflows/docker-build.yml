@@ -16,6 +16,58 @@ env:
   METRICS_IMAGE_NAME: ${{ github.repository }}-metrics
 
 jobs:
+  check-versions:
+    name: Check CLI Versions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check for version updates
+        id: version-check
+        run: |
+          # Extract current versions from Dockerfile
+          CURRENT_CLAUDE=$(grep 'ARG CLAUDE_VERSION=' Dockerfile | cut -d'=' -f2)
+          CURRENT_HAPPY=$(grep 'ARG HAPPY_VERSION=' Dockerfile | cut -d'=' -f2)
+
+          # Get latest versions from npm
+          LATEST_CLAUDE=$(npm view @anthropic-ai/claude-code version)
+          LATEST_HAPPY=$(npm view happy-coder version)
+
+          echo "Current Claude Code: $CURRENT_CLAUDE"
+          echo "Latest Claude Code:  $LATEST_CLAUDE"
+          echo "Current Happy:       $CURRENT_HAPPY"
+          echo "Latest Happy:        $LATEST_HAPPY"
+
+          # Set outputs for later use
+          echo "current_claude=$CURRENT_CLAUDE" >> $GITHUB_OUTPUT
+          echo "latest_claude=$LATEST_CLAUDE" >> $GITHUB_OUTPUT
+          echo "current_happy=$CURRENT_HAPPY" >> $GITHUB_OUTPUT
+          echo "latest_happy=$LATEST_HAPPY" >> $GITHUB_OUTPUT
+
+          # Check if updates are available
+          UPDATES_AVAILABLE=false
+          if [ "$CURRENT_CLAUDE" != "$LATEST_CLAUDE" ]; then
+            echo "::warning::Claude Code update available: $CURRENT_CLAUDE -> $LATEST_CLAUDE"
+            UPDATES_AVAILABLE=true
+          fi
+          if [ "$CURRENT_HAPPY" != "$LATEST_HAPPY" ]; then
+            echo "::warning::Happy update available: $CURRENT_HAPPY -> $LATEST_HAPPY"
+            UPDATES_AVAILABLE=true
+          fi
+
+          if [ "$UPDATES_AVAILABLE" = "true" ]; then
+            echo "::notice::To update versions, modify the ARG values in Dockerfile"
+          else
+            echo "::notice::All CLI versions are up to date!"
+          fi
+
   build-agent:
     name: Build Claude Agent Image
     runs-on: ubuntu-latest

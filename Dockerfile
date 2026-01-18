@@ -55,8 +55,13 @@ RUN usermod -l agent -d /home/agent -m ubuntu \
     && echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Install Claude Code CLI and Happy CLI globally (as root)
-# Pin to latest version and verify installation
-RUN npm install -g @anthropic-ai/claude-code@latest happy-coder@latest \
+# Versions are pinned for reproducibility - update via CI/CD checks
+ARG CLAUDE_VERSION=2.1.12
+ARG HAPPY_VERSION=0.13.0
+
+RUN npm install -g \
+    @anthropic-ai/claude-code@${CLAUDE_VERSION} \
+    happy-coder@${HAPPY_VERSION} \
     && claude --version \
     && happy --version
 
