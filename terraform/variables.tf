@@ -80,6 +80,9 @@ variable "agents" {
     # Network policy
     network_policy_create = optional(bool, false)
 
+    # Claude plugins
+    plugins = optional(list(string), [])
+
     # Resource configuration
     resource_limits_cpu      = optional(string, "2")
     resource_limits_memory   = optional(string, "2Gi")

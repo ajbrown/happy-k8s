@@ -242,7 +242,7 @@ spec:
                     if [[ "$plugin" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
                       # GitHub shorthand format (e.g., ajbrown/007)
                       echo "    Detected Claude plugin (GitHub): $plugin"
-                      if claude plugin install "$plugin" --yes 2>&1; then
+                      if claude plugin install "$plugin" 2>&1; then
                         echo "    ✓ Successfully installed Claude plugin: $plugin"
                       else
                         echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
