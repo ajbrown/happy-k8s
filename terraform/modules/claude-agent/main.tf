@@ -89,7 +89,8 @@ resource "helm_release" "claude_agent" {
         accessKey = var.happy_access_key
         settings  = var.happy_settings
       }
-      env = var.env
+      env     = var.env
+      plugins = var.plugins
     })
   ]
 

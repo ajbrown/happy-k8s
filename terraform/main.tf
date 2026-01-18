@@ -61,6 +61,9 @@ module "claude_agent" {
   # Network policy
   network_policy_create = each.value.network_policy_create
 
+  # Claude plugins
+  plugins = try(each.value.plugins, [])
+
   # Chart location (helm directory is at parent level of terraform)
   chart_path = "${path.module}/../helm/happy-k8s"
 }

@@ -245,3 +245,11 @@ variable "network_policy_create" {
   type        = bool
   default     = false
 }
+
+# Claude plugins configuration
+
+variable "plugins" {
+  description = "List of Claude plugins to install (supports both MCP plugins and Claude plugins)"
+  type        = list(string)
+  default     = []
+}
