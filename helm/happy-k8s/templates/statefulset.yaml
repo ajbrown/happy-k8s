@@ -218,10 +218,10 @@ spec:
                 echo "Check network policies, firewall rules, and DNS configuration"
               fi
 
-              # Install Claude MCP plugins if configured
-              # MCP (Model Context Protocol) plugins are npm packages that extend Claude's capabilities
+              # Install Claude plugins if configured
+              # Supports both MCP plugins (npm packages) and Claude plugins (GitHub repos)
               if [ -n "$CLAUDE_PLUGINS" ]; then
-                echo "Installing Claude MCP plugins..."
+                echo "Installing Claude plugins..."
 
                 # Configure npm to use user-writable directory for global packages
                 # This is needed because the container runs as non-root user
@@ -235,20 +235,35 @@ spec:
                   plugin=$(echo "$plugin" | xargs)
                   if [ -n "$plugin" ]; then
                     echo "  Installing plugin: $plugin"
-                    # Install as global npm package in user directory
-                    if npm install -g "$plugin" --loglevel=error 2>&1 | grep -v "npm warn"; then
-                      echo "    ✓ Successfully installed: $plugin"
+
+                    # Detect plugin type:
+                    # - GitHub shorthand (owner/repo): Use claude plugin install
+                    # - npm package (@scope/package or package-name): Use npm install
+                    if [[ "$plugin" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+                      # GitHub shorthand format (e.g., ajbrown/007)
+                      echo "    Detected Claude plugin (GitHub): $plugin"
+                      if claude plugin install "$plugin" --yes 2>&1; then
+                        echo "    ✓ Successfully installed Claude plugin: $plugin"
+                      else
+                        echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                      fi
                     else
-                      echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                      # npm package format
+                      echo "    Detected MCP plugin (npm): $plugin"
+                      if npm install -g "$plugin" --loglevel=error 2>&1 | grep -v "npm warn"; then
+                        echo "    ✓ Successfully installed MCP plugin: $plugin"
+                      else
+                        echo "    ✗ Warning: Failed to install $plugin (continuing anyway)"
+                      fi
                     fi
                   fi
                 done
 
                 echo "Plugin installation complete"
-                echo "Installed plugins are available in: ~/.npm-global/lib/node_modules"
-                echo "Note: You may need to configure these plugins in Claude's MCP settings"
+                echo "MCP plugins available in: ~/.npm-global/lib/node_modules"
+                echo "Claude plugins available in: ~/.claude/plugins"
               else
-                echo "No Claude MCP plugins configured"
+                echo "No Claude plugins configured"
               fi
 
               # Start restart watchdog if enabled

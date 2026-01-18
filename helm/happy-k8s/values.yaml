@@ -64,20 +64,28 @@ happy:
   # Useful for troubleshooting connectivity and daemon issues
   debug: false
 
-# Claude MCP plugins configuration
-# List of MCP (Model Context Protocol) plugins to install on pod startup
-# MCP plugins are npm packages that extend Claude's capabilities with additional tools
-# Plugins are installed globally via: npm install -g <plugin>
-# They will be available in ~/.npm-global/lib/node_modules
+# Claude plugins configuration
+# Supports two types of plugins:
 #
-# Examples:
-#   - "@modelcontextprotocol/server-github"      # GitHub integration
-#   - "@modelcontextprotocol/server-filesystem"  # File system access
-#   - "@modelcontextprotocol/server-memory"      # Persistent memory
-#   - "package-name@version"                     # Specific version
+# 1. MCP Plugins (npm packages) - Model Context Protocol plugins
+#    Installed via: npm install -g <package>
+#    Available in: ~/.npm-global/lib/node_modules
+#    Examples:
+#      - "@modelcontextprotocol/server-github"      # GitHub integration
+#      - "@modelcontextprotocol/server-filesystem"  # File system access
+#      - "@modelcontextprotocol/server-memory"      # Persistent memory
+#      - "package-name@version"                     # Specific version
 #
-# Note: After installation, you may need to configure these plugins in Claude's
-# MCP settings (~/.claude/settings.json) to enable them for Claude Code sessions
+# 2. Claude Plugins (GitHub repos) - Native Claude Code plugins
+#    Installed via: claude plugin install <owner/repo>
+#    Available in: ~/.claude/plugins
+#    Examples:
+#      - "ajbrown/007"                              # Multi-agent workflows
+#      - "owner/plugin-name"                        # Any GitHub plugin
+#
+# The installation script automatically detects the type:
+# - Format "owner/repo" → Claude plugin (uses claude plugin install)
+# - Format "@scope/package" or "package" → MCP plugin (uses npm install)
 plugins: []
 
 # Additional environment variables to set in the container
